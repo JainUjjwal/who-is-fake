@@ -13,7 +13,7 @@ const CLIENT_URL = 'http://localhost:5173'; // Make sure this matches your front
 
 // --- Initialize Express App ---
 const app = express();
-const FRONTEND_URL = 'https://JainUjjwal.github.io/'; // Base URL
+const FRONTEND_URL = 'https://jainujjwal.github.io/'; // Base URL
 
 // --- Apply CORS Middleware ---
 app.use(cors({
