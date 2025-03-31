@@ -1,0 +1,41 @@
+/* src/components/TextInput.css */
+.text-input-wrapper {
+    margin-bottom: 1rem; /* Spacing below the input group */
+    width: 100%;
+  }
+  
+  .text-input-wrapper label {
+    display: block; /* Label on its own line */
+    margin-bottom: 0.4rem; /* Space between label and input */
+    font-weight: bold;
+    color: #555;
+    font-size: 0.9rem;
+  }
+  
+  .text-input-field {
+    width: 100%; /* Full width to fit container */
+    padding: 0.75rem 1rem; /* Comfortable padding */
+    border: 1px solid #ccc; /* Standard border */
+    border-radius: 6px; /* Match button rounding */
+    font-size: 1rem;
+    line-height: 1.4;
+    background-color: #fff;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  
+  .text-input-field::placeholder {
+      color: #aaa;
+      opacity: 1; /* Firefox fix */
+  }
+  
+  .text-input-field:focus {
+    border-color: #ff6b6b; /* Highlight border on focus */
+    outline: none; /* Remove default browser outline */
+    box-shadow: 0 0 0 2px rgba(255, 107, 107, 0.3); /* Subtle glow */
+  }
+  
+  .text-input-field:disabled {
+    background-color: #e9ecef; /* Grey out disabled input */
+    cursor: not-allowed;
+    opacity: 0.7;
+  }

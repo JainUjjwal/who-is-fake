@@ -1,0 +1,378 @@
+import React, { useState, useEffect, useCallback } from 'react'; // <-- Import useCallback
+import { useParams, useNavigate } from 'react-router-dom';
+import Button from '../components/Button';
+import TextInput from '../components/TextInput';
+import TimerDisplay from '../components/TimerDisplay';
+import PlayerList from '../components/PlayerList';
+import socket from '../socket';
+import './GamePage.css';
+
+// Define potential game states/phases
+const GAME_STATES = {
+    LOADING: 'loading',
+    WAITING_FOR_QUESTION: 'waiting_for_question',
+    ANSWERING: 'answering', // Players are answering
+    WAITING_FOR_ANSWERS: 'waiting_for_answers', // Current player submitted, waiting for others
+    GUESSING: 'guessing', // All answers are in, guess timer running
+    REVEALING: 'revealing', // Imposter revealed
+    GAME_OVER: 'game_over',
+};
+
+function GamePage() {
+    const { roomCode } = useParams(); // [cite: 5]
+    const navigate = useNavigate(); // [cite: 5]
+
+    // --- State ---
+    const [gameState, setGameState] = useState(GAME_STATES.LOADING); // [cite: 6]
+    const [players, setPlayers] = useState([]); // [cite: 6]
+    const [currentRound, setCurrentRound] = useState(0); // [cite: 7]
+    const [totalQuestions, setTotalQuestions] = useState(0); // [cite: 8]
+    const [question, setQuestion] = useState(''); // [cite: 8]
+    const [isImposter, setIsImposter] = useState(false); // [cite: 9]
+    const [myAnswer, setMyAnswer] = useState(''); // [cite: 9]
+    const [submittedAnswers, setSubmittedAnswers] = useState({}); // [cite: 10]
+    const [turnTimerRemaining, setTurnTimerRemaining] = useState(null); // [cite: 10]
+    const [timeSinceTurnEnded, setTimeSinceTurnEnded] = useState(null); // [cite: 11]
+    const [guessTimerRemaining, setGuessTimerRemaining] = useState(null); // [cite: 11]
+    const [isGuessTimerPaused, setIsGuessTimerPaused] = useState(false); // [cite: 12]
+    const [revealedData, setRevealedData] = useState(null); // [cite: 12]
+    const [isCreator, setIsCreator] = useState(false); // [cite: 13]
+    const [realQuestionText, setRealQuestionText] = useState(''); // [cite: 14]
+    const [error, setError] = useState(''); // [cite: 15]
+
+
+    // --- Define Handlers using useCallback ---
+
+    const handleNewRound = useCallback((data) => { // [cite: 17]
+        console.log('--- handleNewRound received ---');
+        console.log('Type of data argument:', typeof data);
+        console.log('Data argument content:', JSON.stringify(data, null, 2));
+
+        if (Array.isArray(data)) { data = data[0]; } // [cite: 18] Handle potential array wrap
+        if (!data || typeof data !== 'object') { // [cite: 18] Validate
+             console.error("handleNewRound received invalid data type.");
+             return;
+        }
+
+        console.log('Attempting state updates with:', data.roundNumber, data.totalQuestions, data.question); // [cite: 18]
+        setGameState(GAME_STATES.ANSWERING); // [cite: 19] Crucial: Set state to answering
+        setCurrentRound(data.roundNumber || 0); // [cite: 19]
+        setTotalQuestions(data.totalQuestions || 0); // [cite: 20]
+        setQuestion(data.question || ''); // [cite: 21]
+        setIsImposter(data.isImposter || false); // [cite: 22]
+        setMyAnswer(''); // [cite: 23]
+        setSubmittedAnswers({}); // [cite: 23]
+        setTurnTimerRemaining(data.turnTimerDuration || null); // [cite: 23]
+        setTimeSinceTurnEnded(null); // [cite: 23]
+        setRevealedData(null); // [cite: 23]
+        setRealQuestionText(''); // [cite: 23]
+        setError(''); // [cite: 23]
+        if(data.players) setPlayers(data.players); // [cite: 23]
+        const me = data.players?.find(p => p.id === socket.id); // [cite: 23]
+        setIsCreator(me?.isCreator || false); // [cite: 24]
+        console.log('State update functions called.'); // [cite: 24]
+    }, []); // Setters are stable, socket.id is stable for connection duration
+
+    const handleTurnTimerTick = useCallback((data) => { // [cite: 24]
+        setTurnTimerRemaining(data.remaining);
+    }, []); // Setter is stable
+
+    const handleGuessTimerTick = useCallback((data) => { // [cite: 25]
+        setGuessTimerRemaining(data.remaining);
+        setIsGuessTimerPaused(data.isPaused || false); // [cite: 26]
+    }, []); // Setters are stable
+
+    const handleAllAnswersIn = useCallback((data) => { // [cite: 27]
+        console.log('All answers in:', data);
+        if (data.roomCode === roomCode) { // Check roomCode needed here [cite: 43]
+             setGameState(GAME_STATES.GUESSING); // [cite: 27]
+             setTimeSinceTurnEnded(null); // [cite: 29]
+             setTurnTimerRemaining(0); // [cite: 27]
+             setSubmittedAnswers(data.answers || {}); // [cite: 27]
+             setGuessTimerRemaining(data.guessTimerDuration || null); // [cite: 28]
+             setIsGuessTimerPaused(false); // [cite: 29]
+             setRealQuestionText(data.realQuestion || 'Question could not be loaded.'); // [cite: 30]
+             if (data.players) setPlayers(data.players); // [cite: 30]
+         }
+    }, [roomCode]); // Depends on roomCode for the check
+
+    const handleReveal = useCallback((data) => { // [cite: 31]
+        console.log('[handleReveal] Data received:', JSON.stringify(data, null, 2)); // [cite: 31]
+        if (data.roomCode === roomCode) { // Check roomCode
+            const nameFromPayload = data.imposterName; // [cite: 32]
+            const dataToSet = { // [cite: 33]
+                imposterId: data.imposterId,
+                imposterName: nameFromPayload || '!!! FALLBACK TO UNKNOWN !!!', // [cite: 35]
+                fakeQuestion: data.fakeQuestion // [cite: 35]
+            };
+            setGameState(GAME_STATES.REVEALING); // [cite: 36]
+            setGuessTimerRemaining(null); // [cite: 36]
+            setRevealedData(dataToSet); // [cite: 37]
+            setPlayers(prevPlayers => prevPlayers.map(p => ({ // [cite: 38]
+                ...p,
+                isRevealedImposter: p.id === data.imposterId
+            })));
+            console.log('Reveal state updated.'); // [cite: 39]
+        }
+    }, [roomCode]); // Depends on roomCode
+
+    const handleGameOver = useCallback((data) => { // [cite: 39]
+        console.log(`[handleGameOver] Frontend received 'gameOver' event for room ${data?.roomCode}:`, data);
+        if (data.roomCode === roomCode) { // Check roomCode
+             setGameState(GAME_STATES.GAME_OVER); // [cite: 40]
+             setRevealedData(data.summary || { message: "Game Over!" }); // [cite: 40]
+             setError(''); // [cite: 40]
+         }
+    }, [roomCode]); // Depends on roomCode
+
+    const handleGameError = useCallback((data) => { // [cite: 41]
+        console.error('Received Game Error:', data);
+        setError(data.message || 'An unknown game error occurred.'); // [cite: 42]
+    }, []); // No dependencies typically needed
+
+    const handleUpdateRoomState = useCallback((data) => { // [cite: 42]
+        console.log('GamePage received room state update:', data);
+        if (data.roomCode === roomCode) { // [cite: 43]
+            setPlayers(data.players || []); // [cite: 43]
+            // Optionally update settings
+            const updatedMe = data.players?.find(p => p.id === socket.id); // [cite: 45]
+            setIsCreator(updatedMe?.isCreator || false); // [cite: 46]
+            setError(''); // [cite: 46]
+        }
+    }, [roomCode]); // Depends on roomCode
+
+    // --- Effects for Socket Listeners ---
+    useEffect(() => { // [cite: 16]
+        console.log(`GamePage EFFECT RUNNING for roomCode: ${roomCode} - Attaching listeners...`);
+
+        if (!socket.connected) { // [cite: 16]
+            setError('Connection lost. Please return home.');
+            return;
+        }
+
+        // Register Listeners using stable handlers
+        console.log(`GamePage: Attaching listeners for ${roomCode}`); // [cite: 47]
+        socket.on('newRound', handleNewRound); // [cite: 48]
+        socket.on('turnTimerTick', handleTurnTimerTick); // [cite: 49]
+        socket.on('allAnswersIn', handleAllAnswersIn); // [cite: 49]
+        socket.on('guessTimerTick', handleGuessTimerTick); // [cite: 49]
+        socket.on('reveal', handleReveal); // [cite: 50]
+        socket.on('gameOver', handleGameOver); // [cite: 50]
+        socket.on('gameError', handleGameError); // [cite: 50]
+        socket.on('updateRoomState', handleUpdateRoomState); // [cite: 50]
+        console.log(`GamePage: Listeners attached for ${roomCode}`);
+
+
+        // Cleanup
+        return () => { // [cite: 52]
+            console.log(`GamePage EFFECT CLEANUP for roomCode: ${roomCode} - Detaching listeners...`);
+            socket.off('newRound', handleNewRound); // [cite: 52]
+            socket.off('turnTimerTick', handleTurnTimerTick); // [cite: 53]
+            socket.off('allAnswersIn', handleAllAnswersIn); // [cite: 53]
+            socket.off('guessTimerTick', handleGuessTimerTick); // [cite: 53]
+            socket.off('reveal', handleReveal); // [cite: 53]
+            socket.off('gameOver', handleGameOver); // [cite: 53]
+            socket.off('gameError', handleGameError); // [cite: 53]
+            socket.off('updateRoomState', handleUpdateRoomState); // [cite: 53]
+            console.log(`GamePage: Listeners detached for ${roomCode}`);
+        };
+
+    }, [ // Effect now depends on roomCode and the stable handler references
+        roomCode, // [cite: 53]
+    ]);
+
+
+    // --- Client-Side Timers ---
+    // Turn Timer Countdown Effect
+    useEffect(() => { // [cite: 54]
+        if (gameState === GAME_STATES.ANSWERING && turnTimerRemaining !== null && turnTimerRemaining > 0) {
+            const intervalId = setInterval(() => {
+                setTurnTimerRemaining(prev => {
+                    const nextValue = prev !== null && prev > 0 ? prev - 1 : 0; // [cite: 55]
+                    if (nextValue === 0 && prev === 1) { // [cite: 56]
+                        console.log("Turn timer ended. Starting count-up.");
+                        setTimeSinceTurnEnded(0);
+                    }
+                    return nextValue; // [cite: 57]
+                });
+            }, 1000);
+            return () => clearInterval(intervalId); // [cite: 57]
+        }
+    }, [gameState, turnTimerRemaining]); // [cite: 58]
+
+    // Guess Timer Countdown Effect
+    useEffect(() => { // [cite: 58]
+        if (gameState === GAME_STATES.GUESSING && guessTimerRemaining !== null && guessTimerRemaining > 0 && !isGuessTimerPaused) {
+            const intervalId = setInterval(() => {
+                setGuessTimerRemaining(prev => (prev !== null && prev > 0 ? prev - 1 : 0));
+            }, 1000);
+            return () => clearInterval(intervalId); // [cite: 59]
+        }
+    }, [gameState, guessTimerRemaining, isGuessTimerPaused]); // [cite: 59]
+
+    // Count-Up Timer Effect
+    useEffect(() => { // [cite: 60]
+        if ((gameState === GAME_STATES.ANSWERING || gameState === GAME_STATES.WAITING_FOR_ANSWERS) && timeSinceTurnEnded !== null) {
+            const intervalId = setInterval(() => {
+                setTimeSinceTurnEnded(prev => (prev !== null ? prev + 1 : 0)); // [cite: 61]
+            }, 1000);
+            return () => { // [cite: 62]
+                console.log("Cleaning up count-up timer interval.");
+                clearInterval(intervalId);
+            };
+        } else {
+            if (timeSinceTurnEnded !== null) { // [cite: 62]
+                console.log("Resetting count-up timer because game state changed or timer was nullified.");
+                setTimeSinceTurnEnded(null); // [cite: 63]
+            }
+        }
+    }, [gameState, timeSinceTurnEnded]); // [cite: 63]
+
+
+    // --- Event Handlers (Non-socket) ---
+    const handleSubmitAnswer = () => { // [cite: 64]
+       if (!myAnswer.trim() || gameState !== GAME_STATES.ANSWERING) {
+           console.log("Submit blocked: Empty answer or not in answering state.");
+           return; // [cite: 65]
+       }
+       console.log('Submitting answer:', myAnswer); // [cite: 65]
+       socket.emit('submitAnswer', { roomCode, answerText: myAnswer.trim() }); // [cite: 65]
+       setGameState(GAME_STATES.WAITING_FOR_ANSWERS); // [cite: 66]
+    };
+
+    const handlePauseGuessTimer = () => { // [cite: 67]
+        socket.emit('pauseGuessTimer', { roomCode });
+    };
+    const handleResumeGuessTimer = () => { // [cite: 68]
+        socket.emit('resumeGuessTimer', { roomCode });
+    };
+    const handleSkipGuessTimer = () => { // [cite: 69]
+        if (gameState !== GAME_STATES.GUESSING) return; // [cite: 70]
+        console.log(`Requesting to skip guess timer for room: ${roomCode}`); // [cite: 70]
+        socket.emit('skipGuessTimer', { roomCode }); // [cite: 70]
+    };
+    const handleNextQuestion = () => { // [cite: 72]
+        if (gameState !== GAME_STATES.REVEALING) return; // [cite: 72]
+        console.log(`Requesting next question for room: ${roomCode}`); // [cite: 73]
+        setGameState(GAME_STATES.WAITING_FOR_QUESTION); // [cite: 73]
+        setError(''); // [cite: 74]
+        setRevealedData(null); // [cite: 74]
+        socket.emit('nextQuestion', { roomCode }); // [cite: 76]
+    };
+
+    const handleReturnHome = () => { // [cite: 76]
+        socket.disconnect(); // [cite: 76]
+        navigate('/'); // [cite: 76]
+    };
+
+
+    // --- Render Logic ---
+    return ( // [cite: 77]
+        <div className="game-container">
+            <h2>Game Room: {roomCode}</h2>
+            {error && <p className="error-message">{error}</p>}
+
+            {gameState === GAME_STATES.LOADING && !error && <p>Loading game...</p>}
+
+            {gameState !== GAME_STATES.LOADING && gameState !== GAME_STATES.GAME_OVER && ( // [cite: 78]
+                <p className="round-info">Round: {currentRound} / {totalQuestions}</p>
+            )}
+
+            {(gameState === GAME_STATES.ANSWERING || gameState === GAME_STATES.WAITING_FOR_ANSWERS) && ( // [cite: 78]
+                <div className="answering-phase"> {/* [cite: 79] */}
+                    <h3>Your Question:</h3>
+                    <p className="question-text">{isImposter ? '(You are the Imposter! 🇸) ' : ''} {question || 'Waiting for question...'}</p> {/* [cite: 79] */}
+                    {timeSinceTurnEnded === null ? // [cite: 80]
+                        (<TimerDisplay secondsRemaining={turnTimerRemaining} className="turn-timer" />) // [cite: 81]
+                        :
+                        ( // [cite: 81]
+                            <div className="timer-ended-display"> {/* [cite: 82] */}
+                                <span>Turn Time Ended! (You can still submit your answer 😄)</span> {/* [cite: 82] */}
+                                <TimerDisplay secondsRemaining={timeSinceTurnEnded} className="turn-timer-ended" /> {/* [cite: 83] */}
+                            </div> // [cite: 84]
+                        )
+                    }
+                    <TextInput // [cite: 84]
+                        label="Your Answer:"
+                        value={myAnswer} // [cite: 85]
+                        onChange={(e) => setMyAnswer(e.target.value)}
+                        disabled={gameState === GAME_STATES.WAITING_FOR_ANSWERS} // [cite: 86]
+                        placeholder="Type your answer here..."
+                    />
+                    <Button // [cite: 86]
+                        onClick={handleSubmitAnswer}
+                        disabled={gameState === GAME_STATES.WAITING_FOR_ANSWERS || !myAnswer.trim()} // [cite: 88]
+                    >
+                        Submit Answer
+                    </Button>
+                    {gameState === GAME_STATES.WAITING_FOR_ANSWERS && <p>Answer submitted! Waiting for others...</p>} {/* [cite: 89] */}
+                    {turnTimerRemaining === 0 && gameState === GAME_STATES.ANSWERING && <p className="warning-message">Time's up! Waiting for remaining players...</p>} {/* [cite: 90] */}
+                </div>
+            )}
+
+            {gameState === GAME_STATES.GUESSING && ( // [cite: 90]
+                <div className="guessing-phase">
+                    <h4 className="real-question-display">The actual question was:</h4> {/* [cite: 91] */}
+                    <p className="real-question-text">{realQuestionText || 'Loading question...'}</p> {/* [cite: 91] */}
+                    <h3 style={{ marginTop: '1.5rem' }}>Answers Submitted:</h3>
+                    <ul className="submitted-answers-list"> {/* [cite: 92] */}
+                        {Object.entries(submittedAnswers).map(([playerId, answer]) => { // [cite: 92]
+                            const playerName = players.find(p => p.id === playerId)?.name || 'Someone'; // [cite: 94]
+                            return <li key={playerId}><strong>{playerName}:</strong> {answer || 'No answer'}</li>; // [cite: 94]
+                        })}
+                    </ul>
+                    <p>Discuss! Who do you think had a different question?</p> {/* [cite: 95] */}
+                    <TimerDisplay secondsRemaining={guessTimerRemaining} className="guess-timer" /> {/* [cite: 95] */}
+                    {isCreator && ( // [cite: 95]
+                        <div className="creator-controls"> {/* [cite: 96] */}
+                            {/* Pause/Resume buttons were removed in user's code, only Skip/Reveal left */}
+                            <Button // [cite: 96]
+                                onClick={handleSkipGuessTimer}
+                                // disabled={guessTimerRemaining === 0} // [cite: 97]
+                            >
+                                Reveal {/* [cite: 98] Changed label based on user code */}
+                            </Button>
+                        </div> // [cite: 99]
+                    )}
+                </div>
+            )}
+
+            {gameState === GAME_STATES.REVEALING && revealedData && ( // [cite: 100]
+                <div className="revealing-phase">
+                    <h3>Reveal!</h3>
+                    <p>The player with a different question was: <strong>{revealedData.imposterName || 'Unknown'}!</strong></p> {/* [cite: 101] */}
+                    <p>Their question was: "{revealedData.fakeQuestion}"</p> {/* [cite: 101] */}
+                    {isCreator && currentRound < totalQuestions && ( // [cite: 101]
+                        <Button onClick={handleNextQuestion}>Next Question ({currentRound + 1} / {totalQuestions})</Button> // [cite: 102]
+                    )}
+                    {isCreator && currentRound >= totalQuestions && ( // [cite: 102]
+                        <p>That was the last round!</p> // [cite: 104]
+                    )}
+                    {!isCreator && currentRound < totalQuestions && ( // [cite: 104]
+                        <p>Waiting for host ({players.find(p=>p.isCreator)?.name || 'host'}) to start the next round...</p> // [cite: 105]
+                    )}
+                     {!isCreator && currentRound >= totalQuestions && ( // [cite: 105]
+                         <p>Game Over!</p>
+                     )}
+                </div> // [cite: 106]
+            )}
+
+            {gameState === GAME_STATES.GAME_OVER && ( // [cite: 106]
+                <div className="game-over-phase">
+                    <h2>Game Over!</h2>
+                    {typeof revealedData === 'object' && revealedData !== null && revealedData.message ? ( // [cite: 107]
+                        <p>{revealedData.message}</p> // [cite: 107]
+                    ) : (
+                        <pre>{JSON.stringify(revealedData, null, 2)}</pre> // [cite: 108]
+                    )}
+                    <p>Thanks for playing!</p> {/* [cite: 108] */}
+                    <Button onClick={handleReturnHome}>Return to Home</Button> {/* [cite: 108] */}
+               </div> // [cite: 109]
+            )}
+
+            <PlayerList players={players} title="Game Players" className="game-player-list"/> {/* [cite: 109] */}
+        </div>
+    );
+} // [cite: 110]
+
+export default GamePage; // [cite: 110]

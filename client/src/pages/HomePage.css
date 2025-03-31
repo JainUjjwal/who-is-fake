@@ -1,0 +1,70 @@
+/* src/pages/HomePage.css */
+.homepage-container {
+    padding: 1rem 0; /* Vertical padding */
+  }
+  
+  .homepage-container h1 {
+    text-align: center;
+    margin-bottom: 1.5rem;
+  }
+  
+  .room-form {
+    background-color: #ffffff;
+    padding: 1.5rem;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    margin-bottom: 2rem;
+  }
+  
+  .room-form h2 {
+    margin-top: 0;
+    margin-bottom: 1.5rem;
+    text-align: center;
+    font-size: 1.5rem;
+  }
+  
+  .player-name-input {
+      margin-bottom: 2rem; /* More space after name input */
+  }
+  
+  /* --- Responsive Adjustments --- */
+  @media (min-width: 768px) {
+    .homepage-container {
+      /* Use Flexbox or Grid to put forms side-by-side on larger screens */
+      display: flex;
+      flex-direction: column; /* Stack elements vertically */
+      align-items: center; /* Center forms horizontally */
+    }
+  
+    /* Limit form width on larger screens */
+    .player-name-input,
+    .room-form {
+        width: 100%;
+        max-width: 500px;
+    }
+  
+    .divider {
+        display: none; /* Hide divider if forms are not side-by-side */
+        /* Or style differently if they ARE side-by-side */
+    }
+  }
+  
+  /* Example for side-by-side layout (uncomment and adjust if needed) */
+  
+  /* @media (min-width: 992px) {
+    .homepage-forms-wrapper {
+       display: flex;
+       gap: 2rem;
+       justify-content: center;
+       align-items: flex-start;
+       width: 100%;
+       max-width: 1000px;
+       margin: 0 auto;
+    }
+     .room-form {
+         flex: 1;
+         margin-bottom: 0;
+     }
+      .divider { display: none; }
+  } */
+ 

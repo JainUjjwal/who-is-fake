@@ -1,0 +1,136 @@
+/* src/pages/GamePage.css */
+.game-container {
+    padding: 1rem 0;
+}
+
+.game-container h2 {
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+.round-info {
+    text-align: center;
+    font-size: 0.9rem;
+    color: #666;
+    margin-bottom: 1.5rem;
+}
+
+/* Phase Container Base Styles */
+.answering-phase,
+.guessing-phase,
+.revealing-phase,
+.game-over-phase {
+    background-color: #fff;
+    padding: 1.5rem;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    margin-bottom: 2rem;
+}
+
+/* Specific Phase Styles */
+.question-text {
+    font-size: 1.1rem;
+    font-weight: bold;
+    margin-bottom: 1rem;
+    color: #1a535c;
+    background-color: #eef;
+    padding: 0.75rem;
+    border-radius: 4px;
+}
+
+.answering-phase .timer-display {
+    display: block;
+    /* Make timer full width or center */
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+.answering-phase .button {
+    margin-top: 1rem;
+    /* Space above submit button */
+}
+
+.guessing-phase h3,
+.revealing-phase h3,
+.game-over-phase h2 {
+    margin-top: 0;
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.submitted-answers-list {
+    list-style: disc;
+    /* Add bullets for answers */
+    padding-left: 1.5rem;
+    /* Indent bullet points */
+    margin-bottom: 1.5rem;
+    background-color: #f9f9f9;
+    padding: 1rem 1rem 1rem 2rem;
+    /* Padding around answers */
+    border-radius: 4px;
+}
+
+.submitted-answers-list li {
+    margin-bottom: 0.5rem;
+    font-style: italic;
+    color: #555;
+}
+
+.guessing-phase .timer-display {
+    display: block;
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+.creator-controls {
+    display: flex;
+    flex-wrap: wrap;
+    /* Allow buttons to wrap on small screens */
+    gap: 0.5rem;
+    /* Space between buttons */
+    justify-content: center;
+    /* Center buttons */
+    margin-top: 1rem;
+}
+
+.creator-controls .button {
+    width: auto;
+    /* Allow buttons to size naturally */
+    flex-grow: 1;
+    /* Allow buttons to grow if space allows */
+    min-width: 130px;
+    /* Ensure minimum tappable width */
+}
+
+.revealing-phase p {
+    text-align: center;
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+}
+
+.revealing-phase strong {
+    color: #ff6b6b;
+    /* Highlight imposter name */
+}
+
+.revealing-phase .button {
+    display: block;
+    margin: 1.5rem auto 0;
+    width: 100%;
+    max-width: 250px;
+}
+
+.game-player-list {
+    margin-top: 2rem;
+    /* Space above player list */
+}
+
+/* --- Responsive Adjustments --- */
+@media (min-width: 768px) {
+
+
+    .creator-controls .button {
+        flex-grow: 0;
+        /* Stop buttons growing excessively */
+    }
+}

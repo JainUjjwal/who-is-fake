@@ -1,0 +1,42 @@
+/* src/components/Button.css */
+.button {
+  display: inline-block; /* Allows setting padding/margin */
+  padding: 0.75rem 1.5rem; /* Comfortable padding */
+  border: none; /* Remove default border */
+  border-radius: 6px; /* Slightly rounded corners */
+  background-color: #ff6b6b; /* Primary button color */
+  color: #ffffff; /* White text */
+  font-size: 1rem; /* Base font size */
+  font-weight: bold;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out, transform 0.1s ease;
+  appearance: none; /* Remove default browser styling */
+  width: 100%; /* Full width on mobile by default */
+  margin-bottom: 0.5rem; /* Spacing below button */
+}
+
+.button:hover:not(:disabled),
+.button:focus:not(:disabled) {
+  background-color: #ee5a5a; /* Darken on hover/focus */
+  outline: 2px solid #ff6b6b; /* Add focus outline */
+  outline-offset: 2px;
+}
+
+.button:active:not(:disabled) {
+  transform: scale(0.98); /* Slight press effect */
+}
+
+.button:disabled {
+  opacity: 0.6; /* Fade out disabled buttons */
+  cursor: not-allowed; /* Indicate non-interactive state */
+}
+
+/* --- Responsive Adjustments --- */
+@media (min-width: 600px) {
+  .button {
+    width: auto; /* Auto width on larger screens */
+    min-width: 120px; /* Ensure minimum width */
+  }
+}

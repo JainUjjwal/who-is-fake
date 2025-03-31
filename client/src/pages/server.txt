@@ -1,0 +1,697 @@
+// Import necessary modules
+const express = require('express');
+const http = require('http'); // Required to create an HTTP server for Socket.IO
+const { Server } = require("socket.io"); // Import the Server class from socket.io
+const cors = require('cors'); // Import the CORS middleware
+const { v4: uuidv4 } = require('uuid'); // Import UUID generator
+const fs = require('fs');
+const path = require('path'); // To handle file paths correctly
+
+// --- Configuration ---
+const PORT = process.env.PORT || 3001; // Port for the backend server
+const CLIENT_URL = 'http://localhost:5173'; // CHANGE TO 5173 if using Vite default
+
+// --- Initialize Express App ---
+const app = express();
+
+// --- Apply CORS Middleware ---
+app.use(cors({
+    origin: CLIENT_URL, // Allow only your frontend origin
+    methods: ["GET", "POST"] // Specify allowed HTTP methods
+}));
+
+// --- Create HTTP Server ---
+const server = http.createServer(app);
+
+// --- Initialize Socket.IO Server ---
+const io = new Server(server, {
+    cors: {
+        origin: CLIENT_URL, // Allow connections from your frontend origin
+        methods: ["GET", "POST"] // Specify allowed methods for Socket.IO transport
+    }
+});
+
+// ==============================================================
+// --- In-Memory Storage for Rooms ---
+// ==============================================================
+// In a production scenario, you'd likely use a database (like Redis or MongoDB)
+// key: roomCode, value: room object
+const rooms = {};
+
+// Helper function to generate a short, somewhat unique room code
+// You can adjust the length as needed. UUID ensures high uniqueness probability.
+const generateRoomCode = () => {
+    // Simple 6-char code; collisions are possible but less likely for small scale
+    // return Math.random().toString(36).substring(2, 8).toUpperCase();
+    // Using UUID is more robust for uniqueness:
+    return uuidv4().substring(0, 6).toUpperCase();
+};
+
+// --- Basic Express Route ---
+app.get('/', (req, res) => {
+    res.send('<h1>Game Server is Running</h1>');
+});
+
+// ==============================================================
+// --- Question Bank Loading ---
+// ==============================================================
+
+let questionsData = {};
+try {
+    const questionsPath = path.join(__dirname, 'data', 'questions.json');
+    const rawData = fs.readFileSync(questionsPath);
+    questionsData = JSON.parse(rawData);
+    console.log(`Successfully loaded ${Object.keys(questionsData).length} question pairs.`);
+} catch (error) {
+    console.error("!!! Failed to load questions.json:", error);
+    questionsData = {}; // Ensure it's an empty object if loading fails
+}
+const questionKeys = Object.keys(questionsData); // Get question keys once
+// --- End Load Questions ---
+
+// ==============================================================
+// --- Socket.IO Connection Handling ---
+// ==============================================================
+io.on('connection', (socket) => {
+    console.log(`User Connected: ${socket.id}`);
+
+    // --- Room Creation Logic ---
+    socket.on('createRoom', (data) => {
+        try {
+            const playerName = data.playerName || 'Creator'; // Default name if needed
+            const settings = data.settings || { turnTimer: 30, guessTimer: 300, totalQuestions: 10 }; // Default settings
+
+            // Generate a unique room code (add collision check if not using UUID)
+            let roomCode = generateRoomCode();
+            while (rooms[roomCode]) { // In case of a rare collision
+                roomCode = generateRoomCode();
+            }
+
+            const creator = {
+                id: socket.id,
+                name: playerName,
+                isCreator: true,
+                // Add other player properties as needed (e.g., score: 0)
+            };
+
+            // Create the room object
+            rooms[roomCode] = {
+                roomCode,
+                settings,
+                players: [creator],
+                gameState: { status: 'lobby' } // Initial game state
+                // Add other room properties: currentQuestionIndex, imposterId, answers etc. later
+            };
+
+            // Have the creator's socket join the Socket.IO room
+            socket.join(roomCode);
+            console.log(`Room [${roomCode}] created by ${playerName} (${socket.id})`);
+
+            // Send confirmation back to the creator
+            socket.emit('roomCreated', {
+                roomCode,
+                players: rooms[roomCode].players,
+                settings: rooms[roomCode].settings
+            });
+
+        } catch (error) {
+            console.error("Error creating room:", error);
+            // Inform the client about the error (optional)
+            socket.emit('creationError', { message: 'Failed to create room. Please try again.' });
+        }
+    });
+
+    // --- Room Joining Logic ---
+    socket.on('joinRoom', (data) => {
+        try {
+            const { roomCode, playerName = 'Player' } = data;
+            const room = rooms[roomCode];
+
+            // 1. Validate if room exists
+            if (!room) {
+                console.log(`Join attempt failed: Room [${roomCode}] not found.`);
+                socket.emit('joinError', { message: 'Room not found.' });
+                return;
+            }
+
+            // 2. Check if game is already in progress (optional)
+            if (room.gameState.status !== 'lobby') {
+                console.log(`Join attempt failed: Game in room [${roomCode}] already started.`);
+                socket.emit('joinError', { message: 'Game already in progress.' });
+                return;
+            }
+
+            // 3. Check if player is already in the room (e.g., reconnect attempt - handle later if needed)
+            if (room.players.some(p => p.id === socket.id)) {
+                console.log(`Player ${socket.id} already in room [${roomCode}]. Rejoining.`);
+                // Handle rejoining logic if necessary, maybe just send success again
+            } else {
+                // 4. Add new player
+                const newPlayer = {
+                    id: socket.id,
+                    name: playerName,
+                    isCreator: false,
+                };
+                room.players.push(newPlayer);
+                console.log(`${playerName} (${socket.id}) joined room [${roomCode}]`);
+            }
+
+
+            // 5. Have the socket join the room
+            socket.join(roomCode);
+
+            // 6. Send success message back to the joining player
+            socket.emit('joinSuccess', {
+                roomCode,
+                players: room.players,
+                settings: room.settings
+            });
+
+            // 7. Notify ALL players in the room about the updated state
+            io.to(roomCode).emit('updateRoomState', {
+                roomCode,
+                players: room.players,
+                settings: room.settings
+            });
+
+        } catch (error) {
+            console.error(`Error joining room ${data.roomCode}:`, error);
+            socket.emit('joinError', { message: 'Failed to join room. An server error occurred.' });
+        }
+    });
+
+
+
+    // =======================================================
+    // --- Start Game Logic ---
+    // =======================================================
+    socket.on('startGame', (data) => {
+        try {
+            const { roomCode } = data;
+            const room = rooms[roomCode];
+
+            // 1. --- Validation ---
+            if (!room) {
+                console.error(`StartGame Error: Room [${roomCode}] not found.`);
+                socket.emit('lobbyError', { message: `Room ${roomCode} not found.` });
+                return;
+            }
+
+            // Find the player who sent the request
+            const requestingPlayer = room.players.find(p => p.id === socket.id);
+
+            if (!requestingPlayer) {
+                console.error(`StartGame Error: Requesting player ${socket.id} not found in room [${roomCode}].`);
+                // This shouldn't happen if the socket is in the room, but good to check
+                socket.emit('lobbyError', { message: 'Error validating player.' });
+                return;
+            }
+
+            if (!requestingPlayer.isCreator) {
+                console.warn(`StartGame Warning: Non-creator ${requestingPlayer.name} tried to start game in room [${roomCode}].`);
+                socket.emit('lobbyError', { message: 'Only the room creator can start the game.' });
+                return;
+            }
+
+            if (room.gameState.status !== 'lobby') {
+                console.warn(`StartGame Warning: Game in room [${roomCode}] already started or finished.`);
+                socket.emit('lobbyError', { message: 'Game is not in the lobby state.' });
+                return;
+            }
+
+            if (room.players.length < 2) { // Need at least 2 players (1 imposter, 1+ guesser)
+                console.warn(`StartGame Warning: Not enough players in room [${roomCode}]. Need at least 2.`);
+                socket.emit('lobbyError', { message: 'Need at least 2 players to start.' });
+                return;
+            }
+
+            if (questionKeys.length === 0) {
+                console.error(`StartGame Error: No questions loaded from questions.json for room [${roomCode}].`);
+                socket.emit('lobbyError', { message: 'No questions available to start the game.' });
+                return;
+            }
+
+            console.log(`Attempting to start game in room [${roomCode}] by ${requestingPlayer.name}`);
+
+            // 2. --- Update Game State ---
+            room.gameState.status = 'playing';
+            room.gameState.currentQuestionIndex = 0; // Start with the first question
+            room.gameState.answers = {}; // Reset answers for the new game
+            room.gameState.revealedData = null; // Clear any previous reveal info
+            // Reset player statuses if needed (e.g., clear isRevealedImposter from previous game)
+            room.players.forEach(p => { delete p.isRevealedImposter; delete p.currentAnswer; });
+
+            // 3. --- Select Question ---
+            const currentQuestionKey = questionKeys[room.gameState.currentQuestionIndex];
+            if (!questionsData[currentQuestionKey]) {
+                console.error(`StartGame Error: Question key '${currentQuestionKey}' not found in loaded data for room [${roomCode}].`);
+                socket.emit('lobbyError', { message: 'Error loading the first question.' });
+                room.gameState.status = 'lobby'; // Revert status
+                return;
+            }
+            const [realQ, fakeQ] = questionsData[currentQuestionKey];
+            room.gameState.currentQuestion = { real: realQ, fake: fakeQ };
+
+            // 4. --- Select Imposter ---
+            const playerIds = room.players.map(p => p.id);
+            const imposterIndex = Math.floor(Math.random() * playerIds.length);
+            const imposterId = playerIds[imposterIndex];
+            room.gameState.imposterId = imposterId;
+            console.log(`Selected imposter in room [${roomCode}]: ${room.players[imposterIndex].name} (${imposterId})`);
+
+            // 5. --- Emit 'gameStarted' to All ---
+            // (Tells clients to navigate from Lobby to Game page)
+            io.to(roomCode).emit('gameStarted', { roomCode });
+            console.log(`Emitted 'gameStarted' to room [${roomCode}]`);
+
+            // 6. --- Emit 'newRound' Individually ---
+            // (Sends specific question/role to each player)
+            const roundNumber = room.gameState.currentQuestionIndex + 1;
+            const totalQuestions = room.settings.totalQuestions;
+            const turnTimerDuration = room.settings.turnTimer;
+
+            room.players.forEach(player => {
+                const isPlayerImposter = player.id === imposterId;
+                const questionToSend = isPlayerImposter ? fakeQ : realQ;
+
+                const payload = {
+                    roomCode,
+                    roundNumber,
+                    totalQuestions,
+                    question: questionToSend,
+                    isImposter: isPlayerImposter,
+                    turnTimerDuration,
+                    players: room.players // Send updated player list (e.g., statuses cleared)
+                };
+
+                // Emit directly to the specific player's socket ID
+                io.to(player.id).emit('newRound', payload);
+            });
+            console.log(`Emitted 'newRound' individually to players in room [${roomCode}]`);
+
+            // 7. --- TODO: Start Server-Side Turn Timer ---
+            // You'll need to add logic here using setTimeout to automatically
+            // advance the game state after `turnTimerDuration` seconds if not all answers are in.
+            // Example placeholder:
+            // startTurnTimer(roomCode, turnTimerDuration);
+
+        } catch (error) {
+            console.error(`Critical error starting game in room ${data?.roomCode}:`, error);
+            // Attempt to inform the requesting client
+            socket.emit('lobbyError', { message: 'A server error occurred while starting the game.' });
+            // Consider resetting room state if appropriate
+            if (rooms[data?.roomCode]) {
+                rooms[data.roomCode].gameState.status = 'lobby';
+            }
+        }
+    });
+    // =======================================================
+
+    // --- Add this 'submitAnswer' listener ---
+socket.on('submitAnswer', (data) => {
+    try {
+        const { roomCode, answerText } = data;
+        const playerId = socket.id;
+        const room = rooms[roomCode];
+
+        // 1. --- Validation ---
+        if (!room) {
+            console.warn(`submitAnswer: Room [${roomCode}] not found for player ${playerId}`);
+            socket.emit('gameError', { message: 'Room not found.' });
+            return;
+        }
+        const player = room.players.find(p => p.id === playerId);
+        if (!player) {
+            console.warn(`submitAnswer: Player ${playerId} not found in room [${roomCode}]`);
+            socket.emit('gameError', { message: 'Error validating player.' });
+            return;
+        }
+        // Ensure game is in the correct state to accept answers
+        // Allow submission also if status is 'playing' (in case timer runs out while submitting)
+        if (room.gameState.status !== 'playing' && room.gameState.status !== 'answering_timer_ended') { // Added check
+            console.warn(`submitAnswer: Room [${roomCode}] not in correct state (${room.gameState.status}) to accept answers.`);
+            // Maybe inform player? For now, just log and ignore.
+            return;
+        }
+        // Prevent submitting multiple answers for the same round
+        if (room.gameState.answers[playerId]) {
+             console.warn(`submitAnswer: Player ${player.name} (${playerId}) already submitted an answer for this round in room [${roomCode}].`);
+             // Optionally inform the player they already submitted
+             // socket.emit('gameError', { message: 'You already submitted an answer.'});
+             return;
+        }
+        // Validate answer format/length if needed
+        const sanitizedAnswer = (answerText || '').trim().substring(0, 150); // Example: Trim and limit length
+
+        // 2. --- Store the Answer ---
+        room.gameState.answers[playerId] = sanitizedAnswer;
+        // Optionally update player status on the room object if needed elsewhere
+        // player.status = 'Answered';
+        player.hasAnswered = true; // <-- Add this flag to the player object
+        console.log(`Answer received from ${player.name} in room [${roomCode}]: "${sanitizedAnswer}"`);
+
+        // 3. --- Emit Updated State to Everyone ---
+        // Send the updated player list (with hasAnswered flags) immediately
+        io.to(roomCode).emit('updateRoomState', {
+            roomCode,
+            players: room.players,
+            settings: room.settings
+            // You could add more gameState info here if needed by listeners
+        });
+        console.log(`Emitted 'updateRoomState' after answer from ${player.name}`);
+
+        // 4. --- Check if All Answers Are In ---
+        const expectedAnswerCount = room.players.length;
+        const currentAnswerCount = Object.keys(room.gameState.answers).length;
+        console.log(`Room [${roomCode}] Answer Count: ${currentAnswerCount} / ${expectedAnswerCount}`);
+        const realQuestion = room.gameState.currentQuestion?.real || 'Error: Question not found';
+            
+        if (currentAnswerCount >= expectedAnswerCount) {
+            console.log(`All answers received for round ${room.gameState.currentQuestionIndex + 1} in room [${roomCode}]`);
+
+            // --- TODO: Clear Turn Timer ---
+            // if (room.turnTimerTimeout) { clearTimeout(room.turnTimerTimeout); room.turnTimerTimeout = null; }
+
+            // Update game state
+            room.gameState.status = 'guessing';
+
+            // Reset hasAnswered flag for next round (can also be done in 'newRound' logic)
+            // room.players.forEach(p => p.hasAnswered = false); // Optional: Reset here or later
+
+            // Prepare payload for 'allAnswersIn' (still useful to signal phase change)
+            const payload = {
+                roomCode,
+                answers: room.gameState.answers,
+                guessTimerDuration: room.settings.guessTimer,
+                realQuestion: realQuestion,
+                players: room.players // Send final player list for this phase
+            };
+
+            // Emit 'allAnswersIn' to trigger guessing phase on clients
+            io.to(roomCode).emit('allAnswersIn', payload);
+            console.log(`Emitted 'allAnswersIn' to room [${roomCode}]`);
+
+            }
+
+    } catch (error) {
+        console.error(`Error processing submitAnswer for room ${data?.roomCode}:`, error);
+        socket.emit('gameError', { message: 'Error processing your answer.' });
+    }
+});
+// --- End of 'submitAnswer' listener ---
+    socket.on('pauseGuessTimer', (data) => { console.log(`Pause timer request for room: ${data?.roomCode}`); });
+    socket.on('resumeGuessTimer', (data) => { console.log(`Resume timer request for room: ${data?.roomCode}`); });
+
+    socket.on('skipGuessTimer', (data) => {
+        try {
+            const { roomCode } = data;
+            const playerId = socket.id;
+            const room = rooms[roomCode];
+    
+            // 1. --- Validation ---
+            if (!room) {
+                console.warn(`skipGuessTimer: Room [${roomCode}] not found for player ${playerId}`);
+                return; // Ignore if room doesn't exist
+            }
+            const player = room.players.find(p => p.id === playerId);
+            if (!player) {
+                 console.warn(`skipGuessTimer: Player ${playerId} not found in room [${roomCode}]`);
+                return; // Ignore if player isn't in room
+            }
+            if (!player.isCreator) {
+                console.warn(`skipGuessTimer: Non-creator ${player.name} attempted to skip timer in room [${roomCode}]`);
+                // Optionally emit an error back to sender:
+                // socket.emit('gameError', { message: 'Only the creator can skip the timer.' });
+                return; // Ignore if not creator
+            }
+            if (room.gameState.status !== 'guessing') {
+                 console.warn(`skipGuessTimer: Room [${roomCode}] is not in 'guessing' state (currently ${room.gameState.status}).`);
+                return; // Ignore if not in the guessing phase
+            }
+    
+            console.log(`Creator ${player.name} skipped guess timer in room [${roomCode}]`);
+    
+            // Update game state
+            room.gameState.status = 'revealing'; // Move to revealing phase
+    
+            // Prepare reveal data (same logic as when timer normally ends)
+            const { imposterId, currentQuestion } = room.gameState;
+            if (!imposterId || !currentQuestion) {
+                console.error(`skipGuessTimer: Missing imposterId or currentQuestion in room [${roomCode}] state.`);
+                socket.emit('gameError', { message: 'Cannot reveal, game state error.' });
+                // Consider resetting status? room.gameState.status = 'guessing';
+                return;
+            }
+
+            // Find the imposter object using the ID from gameState
+            const imposter = room.players.find(p => p.id === imposterId);
+            // Get the name, providing a fallback just in case
+            const imposterName = imposter ? imposter.name : 'Unknown Name';
+
+            const fakeQuestion = currentQuestion.fake;
+    
+            // Emit the 'reveal' event to everyone in the room
+            io.to(roomCode).emit('reveal', {
+                roomCode, // Good practice to include roomCode
+                imposterId,
+                imposterName,
+                fakeQuestion
+            });
+            console.log(`Emitted 'reveal' to room [${roomCode}] after skip.`);
+    
+        } catch (error) {
+            console.error(`Error processing skipGuessTimer for room ${data?.roomCode}:`, error);
+            socket.emit('gameError', { message: 'Error processing skip timer request.' });
+        }
+    });
+    
+    socket.on('nextQuestion', (data) => {
+        try {
+            const { roomCode } = data;
+            const playerId = socket.id;
+            const room = rooms[roomCode];
+    
+            // 1. --- Validation ---
+            if (!room) { /* ... error handling ... */ return; }
+            const player = room.players.find(p => p.id === playerId);
+            if (!player) { /* ... error handling ... */ return; }
+            if (!player.isCreator) { /* ... error handling: emit gameError ... */ return; }
+            // Ensure game is in revealing state before proceeding
+            if (room.gameState.status !== 'revealing') {
+                console.warn(`nextQuestion: Room [${roomCode}] not in 'revealing' state (is ${room.gameState.status}). Ignoring.`);
+                return;
+            }
+            // Check if already on last question
+            if (room.gameState.currentQuestionIndex >= room.settings.totalQuestions - 1) {
+                 console.warn(`nextQuestion: Already finished last round in room [${roomCode}]. Ignoring.`);
+                 // Trigger game over directly if needed, though it should ideally happen automatically
+                 // Potentially emit gameOver here as a fallback?
+                 return;
+            }
+    
+            console.log(`Creator ${player.name} requested next question for room [${roomCode}]`);
+    
+            // 2. --- Increment Round Index ---
+            room.gameState.currentQuestionIndex++;
+            const nextRoundIndex = room.gameState.currentQuestionIndex;
+            const roundNumber = nextRoundIndex + 1; // For display (1-based)
+            
+            // 3. --- Check if Game Should End NOW ---
+            // (Note: Index is now the one we are *about* to play)
+            if (nextRoundIndex >= room.settings.totalQuestions) {
+                console.log(`Game ending after round ${nextRoundIndex} in room [${roomCode}]`);
+                room.gameState.status = 'gameover';
+                // TODO: Calculate scores/summary if implemented
+                const summary = { message: `Game finished after ${nextRoundIndex} rounds.` };
+                io.to(roomCode).emit('gameOver', { roomCode, summary });
+                console.log(`Emitted 'gameOver' to room [${roomCode}]`);
+                return; // Stop processing
+            }else {
+                // --- >>> Add Logging Here <<< ---
+                console.log(`[nextQuestion] Room [${roomCode}]: Game Not Over. Proceeding to round ${nextRoundIndex + 1}.`);
+                // --- >>> End Logging <<< ---
+   
+                // ... (rest of the logic to set up the next round: reset state, select question/imposter, emit 'newRound') ...
+           }
+    
+            // 4. --- If Game Continues: Setup Next Round ---
+            console.log(`Setting up round ${roundNumber} for room [${roomCode}]`);
+    
+            // Reset round-specific state
+            room.gameState.status = 'playing'; // Back to playing state
+            room.gameState.answers = {};
+            room.gameState.imposterId = null;
+            room.gameState.currentQuestion = null;
+            room.gameState.revealedData = null;
+            room.players.forEach(p => { p.hasAnswered = false; delete p.isRevealedImposter; }); // Reset player status
+    
+            // Clear any lingering guess timer from previous reveal phase
+            if (room.gameState.guessTimerTimeoutId) {
+                clearTimeout(room.gameState.guessTimerTimeoutId);
+                room.gameState.guessTimerTimeoutId = null;
+            }
+            // Clear turn timer too? Depends on implementation.
+    
+            // Select Next Question
+            const currentQuestionKey = questionKeys[nextRoundIndex];
+             if (!questionsData[currentQuestionKey]) { /* ... error handling ... */ return; }
+            const [realQ, fakeQ] = questionsData[currentQuestionKey];
+            room.gameState.currentQuestion = { real: realQ, fake: fakeQ };
+    
+            // Select New Imposter
+            const playerIds = room.players.map(p => p.id);
+            const imposterIndex = Math.floor(Math.random() * playerIds.length);
+            const imposterId = playerIds[imposterIndex];
+            room.gameState.imposterId = imposterId;
+            console.log(`Selected imposter for round ${roundNumber} in room [${roomCode}]: ${room.players[imposterIndex].name}`);
+    
+            // Emit 'newRound' Individually
+            const totalQuestions = room.settings.totalQuestions;
+            const turnTimerDuration = room.settings.turnTimer;
+            room.players.forEach(p => {
+                const isPlayerImposter = p.id === imposterId;
+                const questionToSend = isPlayerImposter ? fakeQ : realQ;
+                const payload = {
+                    roomCode, roundNumber, totalQuestions,
+                    question: questionToSend, isImposter: isPlayerImposter,
+                    turnTimerDuration, players: room.players // Send updated list
+                };
+                io.to(p.id).emit('newRound', payload);
+            });
+            console.log(`Emitted 'newRound' for round ${roundNumber} individually to players in room [${roomCode}]`);
+    
+    
+        } catch (error) {
+            console.error(`Error processing nextQuestion for room ${data?.roomCode}:`, error);
+            socket.emit('gameError', { message: 'Error starting next round.' });
+        }
+    });
+    // =======================================================
+
+    // --- Disconnection Handling ---
+    socket.on('disconnect', () => {
+        console.log(`User Disconnected: ${socket.id}`);
+
+        // Find which room the user was in and remove them
+        let roomCodeFound = null;
+        let wasCreator = false;
+
+        // Iterate through rooms to find the disconnected player
+        for (const roomCode in rooms) {
+            const room = rooms[roomCode];
+            const playerIndex = room.players.findIndex(p => p.id === socket.id);
+
+            if (playerIndex !== -1) {
+                roomCodeFound = roomCode;
+                const disconnectedPlayer = room.players[playerIndex];
+                wasCreator = disconnectedPlayer.isCreator;
+                console.log(`${disconnectedPlayer.name} left room [${roomCodeFound}]`);
+
+                // Remove player from the room array
+                room.players.splice(playerIndex, 1);
+
+                // If room is empty, delete it
+                if (room.players.length === 0) {
+                    console.log(`Room [${roomCodeFound}] is now empty and closing.`);
+                    delete rooms[roomCodeFound];
+                } else {
+                    // If the creator left and others remain, assign a new creator
+                    if (wasCreator) {
+                        room.players[0].isCreator = true; // Assign the next player in list as creator
+                        console.log(`Assigned ${room.players[0].name} as new creator for room [${roomCodeFound}]`);
+                    }
+                    // Notify remaining players about the updated state
+                    io.to(roomCodeFound).emit('updateRoomState', {
+                        roomCode: roomCodeFound,
+                        players: room.players,
+                        settings: room.settings
+                    });
+                }
+                break; // Player found and handled, exit loop
+            }
+        }
+    });
+
+    socket.on('getLobbyState', (data) => {
+        try {
+            const { roomCode } = data;
+            const room = rooms[roomCode];
+
+            if (room) {
+                console.log(`Sending lobby state for room [${roomCode}] to ${socket.id}`);
+                // Emit only back to the requesting socket
+                socket.emit('updateRoomState', {
+                    roomCode,
+                    players: room.players,
+                    settings: room.settings
+                });
+            } else {
+                // Optionally handle case where room doesn't exist when requested
+                console.log(`Lobby state request failed: Room [${roomCode}] not found for ${socket.id}`);
+                socket.emit('lobbyError', { message: `Room ${roomCode} not found.` });
+            }
+        } catch (error) {
+            console.error(`Error getting lobby state for room ${data?.roomCode}:`, error);
+            socket.emit('lobbyError', { message: 'Error retrieving room state.' });
+        }
+    });
+
+    // --- Listener to make sure game start state is achieved ---
+    socket.on('getGameRoundState', (data) => {
+        try {
+            const { roomCode } = data;
+            const room = rooms[roomCode];
+            const player = room?.players.find(p => p.id === socket.id); // Find requesting player
+
+            // Basic validations
+            if (!room || !player) {
+                console.warn(`getGameRoundState: Invalid room [${roomCode}] or player ${socket.id}`);
+                socket.emit('gameError', { message: 'Error finding your game.' });
+                return;
+            }
+
+            // Check if game state has necessary info (game started, question exists)
+            if (room.gameState.status === 'lobby' || !room.gameState.currentQuestion) {
+                console.warn(`getGameRoundState: Game in room [${roomCode}] not started or question missing.`);
+                // Don't send round data if game hasn't actually started properly yet
+                // Or maybe send an appropriate 'waiting' state? For now, just don't send 'newRound'.
+                // Alternatively, emit a specific error or status update.
+                return;
+            }
+
+            console.log(`Player ${player.name} requested game state for room [${roomCode}]. Sending current round info.`);
+
+            // --- Reconstruct the 'newRound' payload ---
+            const { currentQuestionIndex, imposterId, currentQuestion } = room.gameState;
+            const { totalQuestions, turnTimer } = room.settings;
+
+            const roundNumber = currentQuestionIndex + 1; // Should be 1 or higher
+            const isPlayerImposter = player.id === imposterId;
+            const questionToSend = isPlayerImposter ? currentQuestion.fake : currentQuestion.real;
+
+            const payload = {
+                roomCode,
+                roundNumber,
+                totalQuestions,
+                question: questionToSend,
+                isImposter: isPlayerImposter,
+                turnTimerDuration: turnTimer, // Use current setting
+                players: room.players // Send current player list
+            };
+
+            // Emit 'newRound' back ONLY to the requesting player
+            socket.emit('newRound', payload);
+
+        } catch (error) {
+            console.error(`Error in getGameRoundState for room ${data?.roomCode}:`, error);
+            socket.emit('gameError', { message: 'Error retrieving current game state.' });
+        }
+    });
+}); // End io.on('connection')
+
+// --- Start the Server ---
+server.listen(PORT, () => {
+    console.log(`Server listening on port ${PORT}`);
+    console.log(`Allowing connections from: ${CLIENT_URL}`);
+    console.log(`Current Time: ${new Date().toLocaleTimeString()}`); // Added timestamp
+});

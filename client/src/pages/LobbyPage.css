@@ -1,0 +1,97 @@
+/* src/pages/LobbyPage.css */
+.lobby-container {
+    padding: 1rem 0;
+  }
+  
+  .lobby-container h2 {
+      text-align: center;
+      margin-bottom: 1.5rem;
+  }
+  
+  .lobby-container > p { /* Target direct paragraph children */
+    text-align: center;
+    margin-bottom: 1.5rem;
+  }
+  
+  .room-code {
+    font-size: 1.2rem;
+    font-weight: bold;
+    background-color: #fffbe6; /* Light yellow */
+    color: #8a6d3b; /* Brownish text */
+    padding: 0.3rem 0.8rem;
+    border-radius: 4px;
+    border: 1px solid #ffeeba;
+    display: inline-block; /* Allows padding/background */
+  }
+  
+  .lobby-details {
+    margin-top: 2rem;
+    margin-bottom: 2rem;
+    /* Layout handled by media query */
+  }
+  
+  .lobby-settings {
+    background-color: #fff;
+    padding: 1rem;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    margin-bottom: 1.5rem; /* Space between sections on mobile */
+  }
+  
+  .lobby-settings h3 {
+    margin-top: 0;
+    margin-bottom: 0.75rem;
+    font-size: 1.1rem;
+    color: #1a535c;
+  }
+  
+  .lobby-settings p {
+      margin-bottom: 0.5rem;
+      font-size: 0.95rem;
+  }
+  .lobby-settings p:last-child {
+      margin-bottom: 0;
+  }
+  
+  .lobby-container .button { /* Target buttons specifically within lobby */
+     display: block; /* Make buttons full width */
+     width: 100%;
+     max-width: 300px; /* Limit max width */
+     margin: 1rem auto; /* Center buttons */
+  }
+  
+  .leave-button {
+      background-color: #aaa; /* Grey color for leave */
+  }
+  .leave-button:hover:not(:disabled) {
+      background-color: #888;
+  }
+  
+  /* --- Responsive Adjustments --- */
+  @media (min-width: 768px) {
+    .lobby-details {
+      display: flex; /* Side-by-side layout */
+      gap: 2rem; /* Space between settings and player list */
+      align-items: flex-start; /* Align items at the top */
+    }
+  
+    .lobby-settings {
+      flex: 1; /* Take up available space */
+      margin-bottom: 0; /* Remove bottom margin when side-by-side */
+    }
+  
+    .player-list-container { /* Target the container from PlayerList component */
+      flex: 1.5; /* Make player list slightly wider */
+      margin-bottom: 0;
+    }
+  
+    .lobby-container .button {
+        display: inline-block; /* Revert to inline block */
+        width: auto;
+        margin: 1rem 0.5rem 0 0.5rem; /* Adjust margins for inline */
+    }
+    /* Center buttons if needed */
+    .lobby-container > div:has(> .button) { /* Target parent div containing buttons */
+        text-align: center;
+    }
+  }

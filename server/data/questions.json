@@ -1,0 +1,186 @@
+{
+  "morning_routine": [
+    "What's the first drink you usually have in the morning?",
+    "What's the last drink you usually have before bed?"
+  ],
+  "animals": [
+    "Name a cute animal.",
+    "Name an ugly animal."
+  ],
+  "superpowers": [
+    "If you could time travel (past only), when and where would you go first?",
+    "What is the worst moment in history?"
+  ],
+  "activities": [
+    "What's something fun you can do on a rainy day?",
+    "What's something fun you can do on a sunny day?"
+  ],
+  "kiss_age": [
+      "What is the average age to have your first kiss?",
+      "Put in a number between 1-80."
+  ],
+  "relationship": [
+    "How many serious relationships have you had? ",
+    "Put in a number between 0-10"
+  ],
+  "animal_transform": [
+      "What animal would you want to turn into?",
+      "Which animal would you want to exterminate?"
+  ],
+  "animal_taste": [
+      "What animal is the tastiest?",
+      "What animal is the ugliest?"
+  ],
+  "tv_show_kids": [
+      "What TV show would you show your kids?",
+      "What is the best show you have seen in the last few years?"
+  ],
+  "work_hours": [
+      "How many hours of work do you do per week?",
+      "Put a number between 1-80."
+  ],
+  "desert_island_celeb": [
+      "What celeb do you want to be stuck on a deserted island with?",
+      "Name the most controversial celebrity."
+  ],
+  "music_artist": [
+      "Who is your favorite music artist?",
+      "Name the most overrated music artist."
+  ],
+  "zombie_item": [
+      "What is best item to have during a zombie apocalypse?",
+      "What is the worst gift to receive?"
+  ],
+  "celeb_fight": [
+      "What celeb would be a good UFC fighter?",
+      "Name a celeb you think you can beat in a fight."
+  ],
+  "place_relax": [
+      "Craziest place you have taken a poo?",
+      "What is the best place to relax?"
+  ],
+  "pizza_topping": [
+      "What's the best pizza topping?",
+      "What's the most overrated pizza topping?"
+  ],
+  "skill_wish": [
+      "What skill do you WISH you had?",
+      "What skill do you PRETEND you have?"
+  ],
+  "movie_emotion": [
+      "Name a movie that always makes you cry.",
+      "Name a movie that always makes you laugh?"
+  ],
+  "emails_count": [
+      "Roughly how many unread emails do you have?",
+      "Put a number between 0-10000"
+  ],
+  "streaming": [
+    "Roughly how many streaming subscriptions do you have?",
+    "Put in a number between 0-100"
+  ],
+  "money_hypothetical": [
+      "What's the first thing you would buy with $1 million?",
+      "What's the first thing you would buy with $100?"
+  ],
+  "social_media": [
+      "What's your biggest pet peeve about social media?",
+      "What's your favorite thing about social media?"
+  ],
+  "travel_spot": [
+      "Name your dream vacation spot.",
+      "Name the worst city you have ever visited."
+  ],
+  "habit_good_bad": [
+      "What's one good habit you are proud of?",
+      "What's one bad habit you wish you could break?"
+  ],
+  "song_lyrics": [
+      "Name a song you know all the lyrics to.",
+      "Name a song you absolutely cannot stand hearing."
+  ],
+  "phone_app": [
+      "What's your favorite app on your phone (besides basics like text/call)?",
+      "What app do you use most often but secretly dislike?"
+  ],
+  "childhood_cartoon": [
+      "Who was your favorite cartoon character as a kid?",
+      "Which cartoon character scared you the most as a kid?"
+  ],
+  "shoes_socks": [
+      "How many pairs of shoes do you own? (Number 1-100)",
+      "How many pairs of socks do you (roughly) own? (Number 1-200)"
+  ],
+  "describe_you": [
+      "What's one word your best friend would use to describe you?",
+      "What's one word your worst enemy would use to describe you?"
+  ],
+  "q37": [
+    "What's the best fast food chain?",
+    "What is the worst fast food chain?"
+  ],
+  "q38": [
+    "What's your favorite type of international cuisine (e.g., Italian, Mexican, Thai)?",
+    "What type of cuisine do you generally dislike or avoid?"
+  ],
+  "q39": [
+    "What's your ultimate go-to comfort food?",
+    "What food would you only eat if you were starving?"
+  ],
+  "q41": [
+    "Besides milk or sugar, what's the best thing to add to coffee?",
+    "What's the absolute worst thing someone could add to coffee?"
+  ],
+  "q42": [
+    "What's a weird food combination you secretly enjoy?",
+    "What's a food combination that sounds disgusting to you?"
+  ],
+  "q45": [
+    "What's your all-time favorite ice cream flavor?",
+    "Name an ice cream flavor you would never try. (Real or imaginary)"
+  ],
+  "q51": [
+    "Name a book you think everyone should read at least once.",
+    "Name a popular book that you just couldn't finish."
+  ],
+  "q53": [
+    "What's your guiltiest pleasure TV show?",
+    "What critically acclaimed TV show did you find boring?"
+  ],
+  "q60": [
+    "Which fictional world (from book/movie/game) would you most like to live in?",
+    "Which fictional world would you absolutely NOT want to live in?"
+  ],
+  "q64": [
+    "Describe your ideal way to spend a Saturday.",
+    "Describe the most boring way you could possibly spend a Saturday."
+  ],
+  "q65": [
+    "What superpower would be the most USEFUL in everyday boring life?",
+    "What superpower would be the most ANNOYING to have in everyday life?"
+  ],
+  "q66":[
+    "What is the best pet to have?",
+    "Name a super exotic pet that a person can have."
+  ],
+  "q69": [
+    "What's the best color for a car?",
+    "What's the worst, most impractical color for a car?"
+  ],
+  "q71": [
+    "What's something popular to collect that you have no interest in?",
+    "What's something you collect (or used to collect)?"
+  ],
+  "q72": [
+    "What's your favorite type of weather?",
+    "What type of weather do you dislike the most?"
+  ],
+  "q116": [
+    "Is a hot dog a sandwich? (Yes/No)",
+    "Is cereal soup? (Yes/No)"
+  ],
+  "q112": [
+    "What's the single best thing about the internet?",
+    "What's the single worst thing about the internet?"
+  ]
+}

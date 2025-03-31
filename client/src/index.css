@@ -1,0 +1,106 @@
+/* src/index.css */
+
+/* Basic Reset & Box Sizing */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 100%; /* Typically 16px */
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+    Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  line-height: 1.6;
+  background-color: #f4f7f6; /* Light background */
+  color: #333; /* Default text color */
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Main application container (add this class to a wrapper div in App.jsx if needed) */
+.App {
+   width: 100%;
+   max-width: 1200px; /* Max width for very large screens */
+   margin: 0 auto; /* Center the content */
+   padding: 1rem; /* Padding on mobile */
+   flex-grow: 1; /* Allows container to grow to fill space (if using flex on body) */
+}
+
+
+h1, h2, h3, h4, h5, h6 {
+  margin-bottom: 0.75em;
+  line-height: 1.2;
+  color: #1a535c; /* Darker heading color */
+}
+
+h1 { font-size: 2.25rem; }
+h2 { font-size: 1.75rem; }
+h3 { font-size: 1.25rem; }
+
+p {
+  margin-bottom: 1em;
+}
+
+ul, ol {
+  margin-bottom: 1em;
+  /* padding-left: 1.5em; // Add back if you need default list styling */
+}
+
+a {
+  color: #4ecdc4; /* Link color */
+  text-decoration: none;
+}
+
+a:hover, a:focus {
+  text-decoration: underline;
+}
+
+/* Basic Error Message Style */
+.error-message {
+    color: #c0392b; /* Red for errors */
+    background-color: #fdd; /* Light pink background */
+    border: 1px solid #c0392b;
+    padding: 0.75rem;
+    margin-bottom: 1rem;
+    border-radius: 4px;
+    font-weight: bold;
+}
+
+/* Divider Style */
+hr.divider {
+    border: none;
+    border-top: 1px solid #ddd;
+    margin: 1.5rem 0;
+}
+
+/* Utility class for screen-reader only text */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* --- Responsive Adjustments --- */
+@media (min-width: 768px) {
+  .App {
+    padding: 2rem; /* More padding on larger screens */
+  }
+
+  h1 { font-size: 2.75rem; }
+  h2 { font-size: 2rem; }
+  h3 { font-size: 1.5rem; }
+}

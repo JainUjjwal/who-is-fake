@@ -1,0 +1,35 @@
+/* src/components/TimerDisplay.css */
+.timer-display {
+    display: inline-flex; /* Use inline-flex to keep it compact */
+    align-items: center;
+    gap: 0.5rem; /* Space between icon and time */
+    padding: 0.5rem 1rem;
+    background-color: #e0f2f7; /* Light blue background */
+    border: 1px solid #b2ebf2;
+    border-radius: 20px; /* Pill shape */
+    font-weight: bold;
+    color: #0077c2; /* Dark blue text */
+    margin: 0.5rem 0; /* Space around the timer */
+  }
+  
+  .timer-icon {
+    font-size: 1.1rem;
+    line-height: 1; /* Prevent extra spacing */
+  }
+  
+  .timer-time {
+    font-size: 1rem;
+    font-variant-numeric: tabular-nums; /* Keep numbers aligned */
+  }
+
+.timer-display.turn-timer-ended {
+  background-color: #fee; /* Example: Light red background */
+  border-color: #fcc; /* Example: Light red border */
+  color: #c0392b; /* Example: Darker red text */
+}
+
+/* Optional: Change icon color too */
+.timer-display.turn-timer-ended .timer-icon {
+   color: #c0392b; /* Match text color */
+}
+/* --- End of new rule --- */
