@@ -13,10 +13,11 @@ const CLIENT_URL = 'http://localhost:5173'; // Make sure this matches your front
 
 // --- Initialize Express App ---
 const app = express();
+const FRONTEND_URL = 'https://JainUjjwal.github.io/who-is-fake'; // Base URL
 
 // --- Apply CORS Middleware ---
 app.use(cors({
-  origin: CLIENT_URL, // Allow only your frontend origin
+  origin: FRONTEND_URL, // Allow only your frontend origin
   methods: ["GET", "POST"] // Specify allowed HTTP methods
 }));
 
@@ -26,7 +27,7 @@ const server = http.createServer(app);
 // --- Initialize Socket.IO Server ---
 const io = new Server(server, {
   cors: {
-    origin: CLIENT_URL, // Allow connections from your frontend origin
+    origin: FRONTEND_URL, // Allow connections from your frontend origin
     methods: ["GET", "POST"] // Specify allowed methods for Socket.IO transport
   }
 });
