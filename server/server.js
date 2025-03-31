@@ -13,7 +13,7 @@ const CLIENT_URL = 'http://localhost:5173'; // Make sure this matches your front
 
 // --- Initialize Express App ---
 const app = express();
-const FRONTEND_URL = 'https://JainUjjwal.github.io/who-is-fake'; // Base URL
+const FRONTEND_URL = 'https://JainUjjwal.github.io/'; // Base URL
 
 // --- Apply CORS Middleware ---
 app.use(cors({
@@ -585,6 +585,6 @@ io.on('connection', (socket) => {
 // --- Start the Server ---
 server.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);
-  console.log(`Allowing connections from: ${CLIENT_URL}`);
+  console.log(`Allowing connections from: ${FRONTEND_URL}`);
   console.log(`Current Time: ${new Date().toLocaleTimeString()}`);
 });

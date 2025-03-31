@@ -9,7 +9,7 @@ console.log(`Using basename for BrowserRouter: ${basename}`);
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   // <React.StrictMode>
-  <BrowserRouter basename={basename}>
+  <BrowserRouter basename="/who-is-fake/">
     <App />
   </BrowserRouter>
   /* </React.StrictMode>, */
