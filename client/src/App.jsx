@@ -7,7 +7,9 @@ import './App.css';
 function App() {
   return (
     <div className="App">
-      <h1>Who is fake</h1> {/* Or move layout elsewhere */}
+      <Link to="/" className="app-title-link"> {/* Add className for styling */}
+        <h1>Who is fake</h1> {/* Use the desired title text */}
+      </Link> {/* Or move layout elsewhere */}
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/lobby/:roomCode" element={<LobbyPage />} />
